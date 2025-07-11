@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>移动贪吃蛇游戏</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#FF85A2',
+                        secondary: '#FF4D6D',
+                        dark: '#2B2D42',
+                        light: '#F8F9FA',
+                    },
+                    fontFamily: {
+                        game: ['system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .game-shadow {
+                box-shadow: 0 0 20px rgba(255, 133, 162, 0.3);
+            }
+            .control-btn {
+                @apply bg-primary/80 text-white rounded-lg p-4 transition-all duration-200 hover:bg-primary active:scale-95;
+            }
+            .pixel-border {
+                @apply border-4 border-dark border-opacity-70;
+            }
+            .color-picker {
+                @apply w-10 h-10 rounded-full cursor-pointer transition-all duration-200 border-2 border-white shadow-md;
+            }
+            .font-option {
+                @apply py-2 px-4 rounded-md cursor-pointer transition-all duration-200 hover:bg-gray-100;
+            }
+            .achievement-item {
+                @apply flex items-center p-3 rounded-lg mb-2 transition-all duration-200;
+            }
+            .achievement-icon {
+                @apply w-10 h-10 rounded-full flex items-center justify-center mr-3 flex-shrink-0;
+            }
+            .skin-item {
+                @apply relative rounded-lg overflow-hidden transition-all duration-200 border-2;
+            }
+            .skin-preview {
+                @apply w-full aspect-square flex items-center justify-center;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-light to-gray-100 min-h-screen flex flex-col items-center justify-center p-4 text-dark">
+    <div class="max-w-md w-full mx-auto">
+        <!-- 设置按钮 -->
+        <div class="flex justify-end mb-2">
+            <button id="settingsButton" class="bg-dark/10 hover:bg-dark/20 text-dark p-2 rounded-full transition-all duration-200">
+                <i class="fa fa-cog text-xl"></i>
+            </button>
+        </div>
+        
+        <!-- 游戏标题 -->
+        <h1 id="gameTitle" class="text-[clamp(1.5rem,5vw,2.5rem)] font-game text-primary mb-4 text-center tracking-wider">贪吃蛇大作战</h1>
+        
+        <!-- 游戏状态和分数 -->
+        <div id="scoreBoard" class="flex justify-between items-center mb-4 bg-white/80 rounded-lg p-3 pixel-border shadow-md backdrop-blur-sm">
+            <div>
+                <span class="text-sm text-gray-500">分数</span>
+                <p id="score" class="text-2xl font-bold text-primary">0</p>
+            </div>
+            <div>
+                <span class="text-sm text-gray-500">最高记录</span>
+                <p id="highScore" class="text-2xl font-bold text-secondary">0</p>
+            </div>
+            <div>
+                <span class="text-sm text-gray-500">等级</span>
+                <p id="level" class="text-2xl font-bold text-dark">1</p>
+            </div>
+        </div>
+        
+        <!-- 游戏画布 -->
+        <div class="relative mb-6">
+            <canvas id="gameCanvas" class="w-full bg-white/90 rounded-lg pixel-border game-shadow"></canvas>
+            <!-- 游戏开始/结束遮罩 -->
+            <div id="gameOverlay" class="absolute inset-0 bg-dark/70 rounded-lg flex flex-col items-center justify-center backdrop-blur-sm">
+                <h2 id="overlayTitle" class="text-2xl font-game text-primary mb-6">准备开始!</h2>
+                <button id="startButton" class="bg-primary hover:bg-secondary text-white font-bold py-3 px-8 rounded-lg transition-all duration-300 transform hover:scale-105 active:scale-95 pixel-border">
+                    <i class="fa fa-play mr-2"></i>开始游戏
+                </button>
+            </div>
+        </div>
+        
+        <!-- 游戏控制 -->
+        <div class="grid grid-cols-3 gap-3 mb-4">
+            <div></div>
+            <button id="upBtn" class="control-btn col-start-2">
+                <i class="fa fa-arrow-up text-xl"></i>
+            </button>
+            <div></div>
+            
+            <button id="leftBtn" class="control-btn">
+                <i class="fa fa-arrow-left text-xl"></i>
+            </button>
+            <div></div>
+            <button id="rightBtn" class="control-btn">
+                <i class="fa fa-arrow-right text-xl"></i>
+            </button>
+            
+            <div></div>
+            <button id="downBtn" class="control-btn col-start-2">
+                <i class="fa fa-arrow-down text-xl"></i>
+            </button>
+            <div></div>
+        </div>
+        
+        <!-- 设置面板 (默认隐藏) -->
+        <div id="settingsPanel" class="fixed inset-0 bg-dark/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+            <div class="bg-white rounded-xl p-6 max-w-md w-full pixel-border shadow-xl">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold text-dark">游戏设置</h2>
+                    <button id="closeSettings" class="text-dark hover:text-gray-600 transition-colors">
+                        <i class="fa fa-times text-xl"></i>
+                    </button>
+                </div>
+                
+                <!-- 颜色设置 -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-semibold text-dark mb-3">颜色设置</h3>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-2">主色调</label>
+                            <div class="flex flex-wrap gap-2" id="primaryColors">
+                                <div class="color-picker bg-[#FF85A2]" data-color="#FF85A2"></div>
+                                <div class="color-picker bg-[#4CAF50]" data-color="#4CAF50"></div>
+                                <div class="color-picker bg-[#2196F3]" data-color="#2196F3"></div>
+                                <div class="color-picker bg-[#9C27B0]" data-color="#9C27B0"></div>
+                                <div class="color-picker bg-[#FFC107]" data-color="#FFC107"></div>
+                                <div class="color-picker bg-[#FF5722]" data-color="#FF5722"></div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-2">强调色</label>
+                            <div class="flex flex-wrap gap-2" id="secondaryColors">
+                                <div class="color-picker bg-[#FF4D6D]" data-color="#FF4D6D"></div>
+                                <div class="color-picker bg-[#2E7D32]" data-color="#2E7D32"></div>
+                                <div class="color-picker bg-[#0D47A1]" data-color="#0D47A1"></div>
+                                <div class="color-picker bg-[#4A148C]" data-color="#4A148C"></div>
+                                <div class="color-picker bg-[#FF6F00]" data-color="#FF6F00"></div>
+                                <div class="color-picker bg-[#D50000]" data-color="#D50000"></div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-2">背景色</label>
+                            <div class="flex flex-wrap gap-2" id="backgroundColors">
+                                <div class="color-picker bg-[#F8F9FA]" data-color="#F8F9FA"></div>
+                                <div class="color-picker bg-[#E8F5E9]" data-color="#E8F5E9"></div>
+                                <div class="color-picker bg-[#E3F2FD]" data-color="#E3F2FD"></div>
+                                <div class="color-picker bg-[#F3E5F5]" data-color="#F3E5F5"></div>
+                                <div class="color-picker bg-[#FFF3E0]" data-color="#FFF3E0"></div>
+                                <div class="color-picker bg-[#FFEBEE]" data-color="#FFEBEE"></div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-2">文本色</label>
+                            <div class="flex flex-wrap gap-2" id="textColor">
+                                <div class="color-picker bg-[#2B2D42]" data-color="#2B2D42"></div>
+                                <div class="color-picker bg-[#1B5E20]" data-color="#1B5E20"></div>
+                                <div class="color-picker bg-[#01579B]" data-color="#01579B"></div>
+                                <div class="color-picker bg-[#4A148C]" data-color="#4A148C"></div>
+                                <div class="color-picker bg-[#E65100]" data-color="#E65100"></div>
+                                <div class="color-picker bg-[#B71C1C]" data-color="#B71C1C"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 成就面板 -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-semibold text-dark mb-3 flex items-center">
+                        <i class="fa fa-trophy text-yellow-500 mr-2"></i> 游戏成就
+                    </h3>
+                    <div id="achievementsList" class="space-y-2 max-h-40 overflow-y-auto">
+                        <!-- 成就将通过JavaScript动态生成 -->
+                    </div>
+                </div>
+                
+                <!-- 皮肤选择面板 -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-semibold text-dark mb-3 flex items-center">
+                        <i class="fa fa-paint-brush text-primary mr-2"></i> 蛇皮肤
+                    </h3>
+                    <div id="skinsList" class="grid grid-cols-3 gap-3">
+                        <!-- 皮肤将通过JavaScript动态生成 -->
+                    </div>
+                </div>
+                
+                <!-- 重置按钮 -->
+                <button id="resetSettings" class="w-full bg-gray-200 hover:bg-gray-300 text-dark font-medium py-2 px-4 rounded-lg transition-all duration-200">
+                    重置为默认设置
+                </button>
+            </div>
+        </div>
+        
+        <!-- 成就解锁提示 (默认隐藏) -->
+        <div id="achievementToast" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-dark/90 text-white px-6 py-3 rounded-lg shadow-lg z-50 hidden transition-all duration-500 opacity-0">
+            <div class="flex items-center">
+                <div class="w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center mr-3">
+                    <i class="fa fa-trophy"></i>
+                </div>
+                <div>
+                    <h4 id="achievementName" class="font-medium">成就解锁!</h4>
+                    <p id="achievementReward" class="text-sm text-yellow-200">获得新皮肤</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // 获取DOM元素
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            const scoreElement = document.getElementById('score');
+            const highScoreElement = document.getElementById('highScore');
+            const levelElement = document.getElementById('level');
+            const gameOverlay = document.getElementById('gameOverlay');
+            const overlayTitle = document.getElementById('overlayTitle');
+            const startButton = document.getElementById('startButton');
+            const upBtn = document.getElementById('upBtn');
+            const downBtn = document.getElementById('downBtn');
+            const leftBtn = document.getElementById('leftBtn');
+            const rightBtn = document.getElementById('rightBtn');
+            const settingsButton = document.getElementById('settingsButton');
+            const settingsPanel = document.getElementById('settingsPanel');
+            const closeSettings = document.getElementById('closeSettings');
+            const gameTitle = document.getElementById('gameTitle');
+            const scoreBoard = document.getElementById('scoreBoard');
+            const resetSettings = document.getElementById('resetSettings');
+            const achievementToast = document.getElementById('achievementToast');
+            const achievementName = document.getElementById('achievementName');
+            const achievementReward = document.getElementById('achievementReward');
+            
+            // 设置画布尺寸（保持原有大小）
+            canvas.width = 320;
+            canvas.height = 320;
+            
+            // 游戏配置
+            const config = {
+                gridSize: 16, // 网格大小
+                initialSpeed: 150, // 初始速度(毫秒)
+                speedIncrease: 10, // 每升级减少的速度(毫秒)
+            };
+            
+            // 游戏状态
+            let snake = [];
+            let food = {};
+            let direction = 'right';
+            let nextDirection = 'right';
+            let score = 0;
+            let highScore = localStorage.getItem('snakeHighScore') || 0;
+            let level = 1;
+            let gameSpeed = config.initialSpeed;
+            let gameLoop;
+            let isGameRunning = false;
+            
+            // 颜色配置
+            let colorConfig = {
+                primary: '#FF85A2',
+                secondary: '#FF4D6D',
+                light: '#F8F9FA',
+                dark: '#2B2D42'
+            };
+            
+            // 成就和皮肤系统
+            let achievements = {
+                firstGame: { completed: false, name: '首次游戏', description: '完成你的第一场游戏', reward: 'classic' },
+                score100: { completed: false, name: '得分大师', description: '获得100分或更高', reward: 'rainbow' },
+                level5: { completed: false, name: '等级达人', description: '达到5级或更高', reward: 'metallic' },
+                eat50: { completed: false, name: '贪吃蛇', description: '吃掉50个食物', reward: 'speckled' },
+                survive30: { completed: false, name: '生存专家', description: '存活30秒以上', reward: 'striped' },
+            };
+            
+            let unlockedSkins = ['classic']; // 默认解锁经典皮肤
+            let currentSkin = 'classic';
+            let gameStartTime = 0;
+            
+            // 皮肤定义
+            const skins = {
+                classic: {
+                    headColor: () => colorConfig.primary,
+                    bodyColor: (index) => {
+                        const lightened = lightenColor(colorConfig.primary, 20);
+                        return index % 2 === 0 ? colorConfig.primary : lightened;
+                    },
+                    eyeColor: () => 'white'
+                },
+                rainbow: {
+                    headColor: (index) => {
+                        const hue = (index * 10) % 360;
+                        return hslToRgb(hue, 100, 60);
+                    },
+                    bodyColor: (index) => {
+                        const hue = ((index * 10) + 180) % 360;
+                        return hslToRgb(hue, 100, 70);
+                    },
+                    eyeColor: () => 'black'
+                },
+                metallic: {
+                    headColor: () => '#A9A9A9', // 银色
+                    bodyColor: (index) => index % 2 === 0 ? '#C0C0C0' : '#D3D3D3', // 浅灰和银色
+                    eyeColor: () => '#4B0082' // 靛蓝色
+                },
+                speckled: {
+                    headColor: () => '#8B4513', // 棕色
+                    bodyColor: (index) => index % 3 === 0 ? '#CD853F' : '#A0522D', // 浅棕和深棕
+                    eyeColor: () => '#FFD700' // 金色
+                },
+                striped: {
+                    headColor: () => '#1E90FF', // 道奇蓝
+                    bodyColor: (index) => index % 4 < 2 ? '#00BFFF' : '#87CEEB', // 天蓝和浅天蓝
+                    eyeColor: () => 'white'
+                }
+            };
+            
+            // 加载保存的设置
+            loadSavedSettings();
+            
+            // 更新高分显示
+            highScoreElement.textContent = highScore;
+            
+            // 初始化游戏
+            function initGame() {
+                // 重置蛇的位置到中心
+                const centerX = Math.floor(canvas.width / config.gridSize / 2) * config.gridSize;
+                const centerY = Math.floor(canvas.height / config.gridSize / 2) * config.gridSize;
+                
+                snake = [
+                    {x: centerX, y: centerY},
+                    {x: centerX - config.gridSize, y: centerY},
+                    {x: centerX - config.gridSize * 2, y: centerY}
+                ];
+                
+                // 初始方向
+                direction = 'right';
+                nextDirection = 'right';
+                
+                // 生成食物
+                generateFood();
+                
+                // 重置分数和等级
+                score = 0;
+                level = 1;
+                gameSpeed = config.initialSpeed;
+                
+                // 记录游戏开始时间
+                gameStartTime = Date.now();
+                
+                // 更新UI
+                scoreElement.textContent = score;
+                levelElement.textContent = level;
+                
+                // 初始化成就和皮肤UI
+                initAchievementsUI();
+                initSkinsUI();
+                
+                // 绘制初始状态
+                draw();
+            }
+            
+            // 生成食物
+            function generateFood() {
+                const maxX = canvas.width / config.gridSize - 1;
+                const maxY = canvas.height / config.gridSize - 1;
+                
+                // 随机位置
+                food = {
+                    x: Math.floor(Math.random() * maxX) * config.gridSize,
+                    y: Math.floor(Math.random() * maxY) * config.gridSize
+                };
+                
+                // 确保食物不会出现在蛇身上
+                for (let segment of snake) {
+                    if (segment.x === food.x && segment.y === food.y) {
+                        generateFood();
+                        break;
+                    }
+                }
+            }
+            
+            // 移动蛇
+            function moveSnake() {
+                // 获取蛇头
+                const head = {x: snake[0].x, y: snake[0].y};
+                
+                // 更新方向
+                direction = nextDirection;
+                
+                // 根据方向移动
+                switch(direction) {
+                    case 'up':
+                        head.y -= config.gridSize;
+                        break;
+                    case 'down':
+                        head.y += config.gridSize;
+                        break;
+                    case 'left':
+                        head.x -= config.gridSize;
+                        break;
+                    case 'right':
+                        head.x += config.gridSize;
+                        break;
+                }
+                
+                // 检查碰撞 - 墙壁
+                if (head.x < 0 || head.x >= canvas.width || head.y < 0 || head.y >= canvas.height) {
+                    gameOver();
+                    return;
+                }
+                
+                // 检查碰撞 - 自身
+                for (let i = 0; i < snake.length; i++) {
+                    if (head.x === snake[i].x && head.y === snake[i].y) {
+                        gameOver();
+                        return;
+                    }
+                }
+                
+                // 将新头部添加到蛇身体
+                snake.unshift(head);
+                
+                // 检查是否吃到食物
+                if (head.x === food.x && head.y === food.y) {
+                    // 增加分数
+                    score += 10;
+                    scoreElement.textContent = score;
+                    
+                    // 生成新食物
+                    generateFood();
+                    
+                    // 检查成就：吃掉50个食物
+                    if (snake.length >= 50 && !achievements.eat50.completed) {
+                        unlockAchievement('eat50');
+                    }
+                    
+                    // 检查是否升级
+                    if (score % 50 === 0) {
+                        levelUp();
+                    }
+                } else {
+                    // 如果没吃到食物，移除尾部
+                    snake.pop();
+                }
+                
+                // 检查成就：生存30秒
+                const gameDuration = (Date.now() - gameStartTime) / 1000;
+                if (gameDuration >= 30 && !achievements.survive30.completed) {
+                    unlockAchievement('survive30');
+                }
+                
+                // 绘制更新后的游戏
+                draw();
+            }
+            
+            // 升级
+            function levelUp() {
+                level++;
+                levelElement.textContent = level;
+                
+                // 检查成就：达到5级
+                if (level >= 5 && !achievements.level5.completed) {
+                    unlockAchievement('level5');
+                }
+                
+                // 增加游戏速度
+                gameSpeed = Math.max(config.initialSpeed - (level - 1) * config.speedIncrease, 50);
+                
+                // 重新启动游戏循环以应用新速度
+                if (isGameRunning) {
+                    clearInterval(gameLoop);
+                    gameLoop = setInterval(moveSnake, gameSpeed);
+                }
+            }
+            
+            // 绘制游戏
+            function draw() {
+                // 清空画布
+                ctx.fillStyle = '#FAFAFA';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // 绘制网格(可选)
+                ctx.strokeStyle = '#E9ECEF';
+                ctx.lineWidth = 0.5;
+                for (let x = 0; x < canvas.width; x += config.gridSize) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, canvas.height);
+                    ctx.stroke();
+                }
+                for (let y = 0; y < canvas.height; y += config.gridSize) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(canvas.width, y);
+                    ctx.stroke();
+                }
+                
+                // 绘制蛇
+                snake.forEach((segment, index) => {
+                    // 根据皮肤渲染不同样式
+                    const skin = skins[currentSkin];
+                    
+                    // 蛇头
+                    if (index === 0) {
+                        ctx.fillStyle = typeof skin.headColor === 'function' ? skin.headColor(index) : skin.headColor;
+                        ctx.shadowColor = typeof skin.headColor === 'function' ? skin.headColor(index) : skin.headColor;
+                        ctx.shadowBlur = 10;
+                        ctx.fillRect(segment.x, segment.y, config.gridSize, config.gridSize);
+                        ctx.shadowBlur = 0;
+                        
+                        // 眼睛
+                        ctx.fillStyle = typeof skin.eyeColor === 'function' ? skin.eyeColor(index) : skin.eyeColor;
+                        const eyeSize = config.gridSize / 5;
+                        const eyeOffset = config.gridSize / 3;
+                        
+                        // 根据方向调整眼睛位置
+                        switch(direction) {
+                            case 'up':
+                                ctx.fillRect(segment.x + eyeOffset, segment.y + eyeOffset, eyeSize, eyeSize);
+                                ctx.fillRect(segment.x + config.gridSize - eyeOffset - eyeSize, segment.y + eyeOffset, eyeSize, eyeSize);
+                                break;
+                            case 'down':
+                                ctx.fillRect(segment.x + eyeOffset, segment.y + config.gridSize - eyeOffset - eyeSize, eyeSize, eyeSize);
+                                ctx.fillRect(segment.x + config.gridSize - eyeOffset - eyeSize, segment.y + config.gridSize - eyeOffset - eyeSize, eyeSize, eyeSize);
+                                break;
+                            case 'left':
+                                ctx.fillRect(segment.x + eyeOffset, segment.y + eyeOffset, eyeSize, eyeSize);
+                                ctx.fillRect(segment.x + eyeOffset, segment.y + config.gridSize - eyeOffset - eyeSize, eyeSize, eyeSize);
+                                break;
+                            case 'right':
+                                ctx.fillRect(segment.x + config.gridSize - eyeOffset - eyeSize, segment.y + eyeOffset, eyeSize, eyeSize);
+                                ctx.fillRect(segment.x + config.gridSize - eyeOffset - eyeSize, segment.y + config.gridSize - eyeOffset - eyeSize, eyeSize, eyeSize);
+                                break;
+                        }
+                    } else {
+                        // 蛇身体
+                        ctx.fillStyle = typeof skin.bodyColor === 'function' ? skin.bodyColor(index) : skin.bodyColor;
+                        ctx.fillRect(segment.x, segment.y, config.gridSize, config.gridSize);
+                        
+                        // 蛇身体花纹
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                        ctx.fillRect(
+                            segment.x + config.gridSize / 4, 
+                            segment.y + config.gridSize / 4, 
+                            config.gridSize / 2, 
+                            config.gridSize / 2
+                        );
+                    }
+                });
+                
+                // 绘制食物
+                ctx.fillStyle = colorConfig.secondary;
+                ctx.shadowColor = colorConfig.secondary;
+                ctx.shadowBlur = 15;
+                ctx.beginPath();
+                ctx.arc(
+                    food.x + config.gridSize / 2, 
+                    food.y + config.gridSize / 2, 
+                    config.gridSize / 2, 
+                    0, 
+                    Math.PI * 2
+                );
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                
+                // 绘制食物光泽
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.beginPath();
+                ctx.arc(
+                    food.x + config.gridSize / 3, 
+                    food.y + config.gridSize / 3, 
+                    config.gridSize / 5, 
+                    0, 
+                    Math.PI * 2
+                );
+                ctx.fill();
+            }
+            
+            // 辅助函数：浅化颜色
+            function lightenColor(color, percent) {
+                // 去掉#号
+                color = color.replace('#', '');
+                
+                // 转换为RGB值
+                const r = parseInt(color.substring(0, 2), 16);
+                const g = parseInt(color.substring(2, 4), 16);
+                const b = parseInt(color.substring(4, 6), 16);
+                
+                // 计算新的RGB值
+                const newR = Math.min(255, Math.round(r + (255 - r) * percent / 100));
+                const newG = Math.min(255, Math.round(g + (255 - g) * percent / 100));
+                const newB = Math.min(255, Math.round(b + (255 - b) * percent / 100));
+                
+                // 转换回十六进制
+                return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
+            }
+            
+            // HSL转RGB辅助函数
+            function hslToRgb(h, s, l) {
+                h /= 360;
+                s /= 100;
+                l /= 100;
+                
+                let r, g, b;
+                
+                if (s === 0) {
+                    r = g = b = l; // 灰度
+                } else {
+                    const hue2rgb = (p, q, t) => {
+                        if (t < 0) t += 1;
+                        if (t > 1) t -= 1;
+                        if (t < 1/6) return p + (q - p) * 6 * t;
+                        if (t < 1/2) return q;
+                        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                        return p;
+                    };
+                    
+                    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                    const p = 2 * l - q;
+                    r = hue2rgb(p, q, h + 1/3);
+                    g = hue2rgb(p, q, h);
+                    b = hue2rgb(p, q, h - 1/3);
+                }
+                
+                return `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
+            }
+            
+            // 游戏结束
+            function gameOver() {
+                isGameRunning = false;
+                clearInterval(gameLoop);
+                
+                // 更新高分
+                if (score > highScore) {
+                    highScore = score;
+                    highScoreElement.textContent = highScore;
+                    localStorage.setItem('snakeHighScore', highScore);
+                }
+                
+                // 检查成就：首次游戏
+                if (!achievements.firstGame.completed) {
+                    unlockAchievement('firstGame');
+                }
+                
+                // 检查成就：得分100
+                if (score >= 100 && !achievements.score100.completed) {
+                    unlockAchievement('score100');
+                }
+                
+                // 显示游戏结束界面
+                overlayTitle.textContent = '游戏结束!';
+                overlayTitle.className = `text-2xl font-game text-${colorConfig.secondary} mb-6`;
+                startButton.innerHTML = '<i class="fa fa-refresh mr-2"></i>再玩一次';
+                gameOverlay.classList.remove('hidden');
+            }
+            
+            // 开始/重新开始游戏
+            function startGame() {
+                initGame();
+                isGameRunning = true;
+                gameLoop = setInterval(moveSnake, gameSpeed);
+                gameOverlay.classList.add('hidden');
+                overlayTitle.className = `text-2xl font-game text-${colorConfig.primary} mb-6`;
+            }
+            
+            // 控制方向
+            function changeDirection(newDirection) {
+                // 防止180度转向
+                if (
+                    (newDirection === 'up' && direction === 'down') ||
+                    (newDirection === 'down' && direction === 'up') ||
+                    (newDirection === 'left' && direction === 'right') ||
+                    (newDirection === 'right' && direction === 'left')
+                ) {
+                    return;
+                }
+                
+                nextDirection = newDirection;
+            }
+            
+            // 解锁成就
+            function unlockAchievement(id) {
+                achievements[id].completed = true;
+                const reward = achievements[id].reward;
+                
+                // 添加解锁的皮肤
+                if (!unlockedSkins.includes(reward)) {
+                    unlockedSkins.push(reward);
+                }
+                
+                // 显示成就解锁提示
+                showAchievementToast(id);
+                
+                // 保存设置
+                saveSettings();
+            }
+            
+            // 显示成就解锁提示
+            function showAchievementToast(id) {
+                achievementName.textContent = `成就解锁: ${achievements[id].name}`;
+                achievementReward.textContent = `获得皮肤: ${getSkinDisplayName(achievements[id].reward)}`;
+                
+                achievementToast.classList.remove('hidden');
+                setTimeout(() => {
+                    achievementToast.classList.add('opacity-100');
+                }, 10);
+                
+                setTimeout(() => {
+                    achievementToast.classList.remove('opacity-100');
+                    setTimeout(() => {
+                        achievementToast.classList.add('hidden');
+                    }, 500);
+                }, 3000);
+            }
+            
+            // 获取皮肤显示名称
+            function getSkinDisplayName(skinId) {
+                const displayNames = {
+                    classic: '经典',
+                    rainbow: '彩虹',
+                    metallic: '金属',
+                    speckled: '斑点',
+                    striped: '条纹'
+                };
+                return displayNames[skinId] || skinId;
+            }
+            
+            // 初始化成就列表
+            function initAchievementsUI() {
+                const list = document.getElementById('achievementsList');
+                list.innerHTML = '';
+                
+                Object.keys(achievements).forEach(id => {
+                    const achievement = achievements[id];
+                    const item = document.createElement('div');
+                    item.className = `achievement-item ${achievement.completed ? 'bg-green-50 border border-green-100' : 'bg-gray-50 border border-gray-100'}`;
+                    
+                    item.innerHTML = `
+                        <div class="achievement-icon ${achievement.completed ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-400'}">
+                            <i class="fa ${achievement.completed ? 'fa-trophy' : 'fa-lock'}"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="font-medium ${achievement.completed ? 'text-dark' : 'text-gray-500'}">${achievement.name}</h4>
+                            <p class="text-xs ${achievement.completed ? 'text-gray-600' : 'text-gray-400'}">${achievement.description}</p>
+                            <p class="text-xs text-primary mt-1">奖励: ${getSkinDisplayName(achievement.reward)}</p>
+                        </div>
+                    `;
+                    
+                    list.appendChild(item);
+                });
+            }
+            
+            // 初始化皮肤列表
+            function initSkinsUI() {
+                const list = document.getElementById('skinsList');
+                list.innerHTML = '';
+                
+                // 所有可用皮肤
+                const allSkins = Object.keys(skins);
+                
+                allSkins.forEach(skin => {
+                    const isUnlocked = unlockedSkins.includes(skin);
+                    const isActive = currentSkin === skin;
+                    const item = document.createElement('div');
+                    item.className = `skin-item ${isActive ? 'border-primary bg-primary/5' : 'border-transparent hover:border-gray-200'}`;
+                    
+                    // 创建皮肤预览
+                    const preview = document.createElement('div');
+                    preview.className = 'skin-preview';
+                    
+                    // 生成皮肤预览内容
+                    preview.innerHTML = generateSkinPreview(skin);
+                    
+                    item.appendChild(preview);
+                    
+                    // 添加皮肤状态标签
+                    if (isActive) {
+                        item.innerHTML += '<div class="absolute bottom-1 right-1 bg-primary text-white text-xs px-1 rounded">已装备</div>';
+                    } else if (isUnlocked) {
+                        item.innerHTML += `<button class="select-skin-btn absolute inset-0 w-full h-full bg-primary/10 text-primary text-sm flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity" 
+                                          data-skin="${skin}">选择</button>`;
+                    } else {
+                        item.innerHTML += '<div class="absolute inset-0 flex items-center justify-center bg-black/50 text-white text-xs">未解锁</div>';
+                    }
+                    
+                    list.appendChild(item);
+                    
+                    // 添加皮肤选择事件
+                    if (isUnlocked && !isActive) {
+                        const selectBtn = item.querySelector('.select-skin-btn');
+                        selectBtn.addEventListener('click', () => {
+                            currentSkin = skin;
+                            initSkinsUI();
+                            // 重新绘制蛇以应用新皮肤
+                            if (isGameRunning) {
+                                draw();
+                            }
+                            saveSettings();
+                        });
+                    }
+                });
+            }
+            
+            // 生成皮肤预览
+            function generateSkinPreview(skinId) {
+                const skin = skins[skinId];
+                const size = 60; // 预览大小
+                const segmentSize = size / 3;
+                
+                // 创建一个临时canvas用于生成预览
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = size;
+                tempCanvas.height = size;
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                // 绘制背景
+                tempCtx.fillStyle = '#FAFAFA';
+                tempCtx.fillRect(0, 0, size, size);
+                
+                // 绘制蛇预览
+                for (let i = 0; i < 3; i++) {
+                    const x = i * segmentSize;
+                    
+                    // 蛇头
+                    if (i === 0) {
+                        tempCtx.fillStyle = typeof skin.headColor === 'function' ? skin.headColor(i) : skin.headColor;
+                        tempCtx.fillRect(x, 0, segmentSize, segmentSize);
+                        
+                        // 眼睛
+                        tempCtx.fillStyle = typeof skin.eyeColor === 'function' ? skin.eyeColor(i) : skin.eyeColor;
+                        const eyeSize = segmentSize / 5;
+                        const eyeOffset = segmentSize / 3;
+                        
+                        tempCtx.fillRect(x + eyeOffset, eyeOffset, eyeSize, eyeSize);
+                        tempCtx.fillRect(x + segmentSize - eyeOffset - eyeSize, eyeOffset, eyeSize, eyeSize);
+                    } else {
+                        // 蛇身体
+                        tempCtx.fillStyle = typeof skin.bodyColor === 'function' ? skin.bodyColor(i) : skin.bodyColor;
+                        tempCtx.fillRect(x, 0, segmentSize, segmentSize);
+                        
+                        // 蛇身体花纹
+                        tempCtx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                        tempCtx.fillRect(
+                            x + segmentSize / 4, 
+                            segmentSize / 4, 
+                            segmentSize / 2, 
+                            segmentSize / 2
+                        );
+                    }
+                }
+                
+                // 返回预览的HTML
+                return tempCanvas.toDataURL();
+            }
+            
+            // 设置面板控制
+            settingsButton.addEventListener('click', () => {
+                initAchievementsUI();
+                initSkinsUI();
+                settingsPanel.classList.remove('hidden');
+            });
+            
+            closeSettings.addEventListener('click', () => {
+                settingsPanel.classList.add('hidden');
+            });
+            
+            // 颜色选择
+            document.querySelectorAll('#primaryColors .color-picker').forEach(picker => {
+                picker.addEventListener('click', () => {
+                    colorConfig.primary = picker.dataset.color;
+                    updateColors();
+                    saveSettings();
+                });
+            });
+            
+            document.querySelectorAll('#secondaryColors .color-picker').forEach(picker => {
+                picker.addEventListener('click', () => {
+                    colorConfig.secondary = picker.dataset.color;
+                    updateColors();
+                    saveSettings();
+                });
+            });
+            
+            document.querySelectorAll('#backgroundColors .color-picker').forEach(picker => {
+                picker.addEventListener('click', () => {
+                    colorConfig.light = picker.dataset.color;
+                    updateColors();
+                    saveSettings();
+                });
+            });
+            
+            document.querySelectorAll('#textColor .color-picker').forEach(picker => {
+                picker.addEventListener('click', () => {
+                    colorConfig.dark = picker.dataset.color;
+                    updateColors();
+                    saveSettings();
+                });
+            });
+            
+            // 重置设置
+            resetSettings.addEventListener('click', () => {
+                // 重置颜色
+                colorConfig = {
+                    primary: '#FF85A2',
+                    secondary: '#FF4D6D',
+                    light: '#F8F9FA',
+                    dark: '#2B2D42'
+                };
+                
+                // 重置皮肤
+                currentSkin = 'classic';
+                unlockedSkins = ['classic'];
+                
+                // 重置成就
+                Object.keys(achievements).forEach(id => {
+                    achievements[id].completed = false;
+                });
+                
+                // 更新UI
+                updateColors();
+                initAchievementsUI();
+                initSkinsUI();
+                
+                // 保存设置
+                saveSettings();
+            });
+            
+            // 更新颜色
+            function updateColors() {
+                // 更新游戏标题颜色
+                gameTitle.style.color = colorConfig.primary;
+                
+                // 更新分数面板颜色
+                scoreBoard.style.backgroundColor = colorConfig.light;
+                
+                // 更新按钮颜色
+                startButton.style.backgroundColor = colorConfig.primary;
+                startButton.style.borderColor = colorConfig.dark;
+                
+                // 更新方向按钮颜色
+                const controlBtns = document.querySelectorAll('.control-btn');
+                controlBtns.forEach(btn => {
+                    btn.style.backgroundColor = colorConfig.primary + 'CC'; // 80% 不透明度
+                    btn.style.borderColor = colorConfig.dark;
+                });
+                
+                // 更新设置按钮颜色
+                settingsButton.style.color = colorConfig.dark;
+                
+                // 重绘游戏以应用新颜色
+                if (isGameRunning) {
+                    draw();
+                }
+            }
+            
+            // 保存设置到localStorage
+            function saveSettings() {
+                localStorage.setItem('snakeColorConfig', JSON.stringify(colorConfig));
+                localStorage.setItem('snakeAchievements', JSON.stringify(achievements));
+                localStorage.setItem('snakeSkins', JSON.stringify(unlockedSkins));
+                localStorage.setItem('snakeCurrentSkin', currentSkin);
+            }
+            
+            // 从localStorage加载设置
+            function loadSavedSettings() {
+                // 加载颜色设置
+                const savedColors = localStorage.getItem('snakeColorConfig');
+                if (savedColors) {
+                    colorConfig = JSON.parse(savedColors);
+                }
+                
+                // 加载成就
+                const savedAchievements = localStorage.getItem('snakeAchievements');
+                if (savedAchievements) {
+                    achievements = JSON.parse(savedAchievements);
+                }
+                
+                // 加载皮肤
+                const savedSkins = localStorage.getItem('snakeSkins');
+                if (savedSkins) {
+                    unlockedSkins = JSON.parse(savedSkins);
+                }
+                
+                // 加载当前皮肤
+                const savedCurrentSkin = localStorage.getItem('snakeCurrentSkin');
+                if (savedCurrentSkin) {
+                    currentSkin = savedCurrentSkin;
+                }
+                
+                // 应用颜色设置
+                updateColors();
+            }
+            
+            // 事件监听
+            startButton.addEventListener('click', startGame);
+            
+            // 方向控制
+            upBtn.addEventListener('click', () => changeDirection('up'));
+            downBtn.addEventListener('click', () => changeDirection('down'));
+            leftBtn.addEventListener('click', () => changeDirection('left'));
+            rightBtn.addEventListener('click', () => changeDirection('right'));
+            
+            // 键盘控制
+            document.addEventListener('keydown', (e) => {
+                switch(e.key) {
+                    case 'ArrowUp':
+                    case 'w':
+                    case 'W':
+                        changeDirection('up');
+                        break;
+                    case 'ArrowDown':
+                    case 's':
+                    case 'S':
+                        changeDirection('down');
+                        break;
+                    case 'ArrowLeft':
+                    case 'a':
+                    case 'A':
+                        changeDirection('left');
+                        break;
+                    case 'ArrowRight':
+                    case 'd':
+                    case 'D':
+                        changeDirection('right');
+                        break;
+                    case ' ': // 空格键暂停/继续
+                        if (isGameRunning) {
+                            isGameRunning = false;
+                            clearInterval(gameLoop);
+                            overlayTitle.textContent = '游戏暂停';
+                            overlayTitle.className = `text-2xl font-game text-${colorConfig.primary} mb-6`;
+                            gameOverlay.classList.remove('hidden');
+                        } else if (gameLoop) { // 如果游戏已经开始但暂停了
+                            isGameRunning = true;
+                            gameLoop = setInterval(moveSnake, gameSpeed);
+                            gameOverlay.classList.add('hidden');
+                        }
+                        break;
+                }
+            });
+            
+            // 触摸控制
+            let touchStartX = 0;
+            let touchStartY = 0;
+            
+            canvas.addEventListener('touchstart', (e) => {
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+                e.preventDefault();
+            }, { passive: false });
+            
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+            }, { passive: false });
+            
+            canvas.addEventListener('touchend', (e) => {
+                if (!isGameRunning) return;
+                
+                const touchEndX = e.changedTouches[0].clientX;
+                const touchEndY = e.changedTouches[0].clientY;
+                
+                const diffX = touchEndX - touchStartX;
+                const diffY = touchEndY - touchStartY;
+                
+                // 判断滑动方向
+                if (Math.abs(diffX) > Math.abs(diffY)) {
+                    // 水平滑动
+                    if (diffX > 0) {
+                        changeDirection('right');
+                    } else {
+                        changeDirection('left');
+                    }
+                } else {
+                    // 垂直滑动
+                    if (diffY > 0) {
+                        changeDirection('down');
+                    } else {
+                        changeDirection('up');
+                    }
+                }
+                
+                e.preventDefault();
+            }, { passive: false });
+            
+            // 初始化游戏
+            initGame();
+        });
+    </script>
+</body>
+</html>
