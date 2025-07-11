@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>方块跳（优化版）</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        body {
+            width: 100vw;
+            height: 100vh;
+            background: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+        .game-container {
+            position: relative;
+            width: 90vw;
+            max-width: 400px;
+            height: 80vh;
+            border: 2px solid black;
+            overflow: hidden;
+        }
+        /* 主界面 */
+        .main-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .title {
+            font-size: 32px;
+            font-weight: bold;
+            color: black;
+            margin-bottom: 50px;
+        }
+        .start-btn, .restart-btn, .home-btn {
+            width: 180px;
+            height: 45px;
+            border: 2px solid black;
+            background: transparent;
+            color: black;
+            font-size: 18px;
+            margin: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .start-btn:hover, .restart-btn:hover, .home-btn:hover {
+            background: black;
+            color: white;
+        }
+        /* 游戏中界面 */
+        .game-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+        }
+        /* 黑色方块角色（带表情） */
+        .player {
+            position: absolute;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 40px;
+            background: black;
+            border-radius: 4px;
+            z-index: 10;
+        }
+        .face {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 25px;
+            height: 20px;
+            color: white;
+            font-size: 16px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        /* 障碍物（灰色线条） */
+        .obstacle {
+            position: absolute;
+            width: 40px;
+            height: 10px;
+            background: #555;
+        }
+        /* 分数显示 */
+        .score {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: black;
+            font-size: 22px;
+            font-weight: bold;
+        }
+        /* 结束界面 */
+        .end-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.1);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+        }
+        .end-title {
+            font-size: 36px;
+            color: black;
+            margin-bottom: 20px;
+        }
+        .final-score {
+            font-size: 50px;
+            color: black;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <!-- 主界面 -->
+        <div class="main-screen">
+            <div class="title">方块跳</div>
+            <button class="start-btn">开始游戏</button>
+        </div>
+
+        <!-- 游戏中界面 -->
+        <div class="game-screen">
+            <div class="player">
+                <div class="face">😊</div>
+            </div>
+            <div class="score" id="score">0</div>
+        </div>
+
+        <!-- 结束界面 -->
+        <div class="end-screen">
+            <div class="end-title">游戏结束</div>
+            <div class="final-score" id="finalScore">0</div>
+            <button class="restart-btn">再来一次</button>
+            <button class="home-btn">返回主页</button>
+        </div>
+    </div>
+
+    <script>
+        // 游戏核心变量（重点调整物理参数）
+        let gameRunning = false;
+        let score = 0;
+        let obstacleSpeed = 2.5; // 初始速度降低，更易躲避
+        let player = document.querySelector('.player');
+        let face = document.querySelector('.face');
+        let scoreDisplay = document.getElementById('score');
+        let mainScreen = document.querySelector('.main-screen');
+        let gameScreen = document.querySelector('.game-screen');
+        let endScreen = document.querySelector('.end-screen');
+        let finalScoreDisplay = document.getElementById('finalScore');
+        let obstacles = [];
+        let animationId;
+        let playerVelocity = 0;
+        const gravity = 0.4; // 重力减小（原0.6→0.4），下落更慢
+        const jumpForce = -9; // 跳跃力度降低（原-11→-9），跳得更低更稳
+        const obstacleHeights = [80, 180, 280]; // 保持规律高度
+        let heightIndex = 0;
+        const obstacleInterval = 1300; // 间隔延长到1.3秒，给更多反应时间
+        let lastObstacleTime = 0;
+
+        // 按钮事件
+        document.querySelector('.start-btn').addEventListener('click', startGame);
+        document.querySelector('.restart-btn').addEventListener('click', restartGame);
+        document.querySelector('.home-btn').addEventListener('click', goToHome);
+
+        // 开始游戏
+        function startGame() {
+            mainScreen.style.display = 'none';
+            gameScreen.style.display = 'block';
+            endScreen.style.display = 'none';
+            initGame();
+            gameRunning = true;
+            animate();
+        }
+
+        // 重置游戏
+        function initGame() {
+            score = 0;
+            obstacleSpeed = 2.5;
+            heightIndex = 0;
+            player.style.bottom = '50px';
+            playerVelocity = 0;
+            face.textContent = '😊';
+            scoreDisplay.textContent = score;
+            obstacles.forEach(obs => obs.remove());
+            obstacles = [];
+            lastObstacleTime = Date.now();
+        }
+
+        // 游戏主循环
+        function animate() {
+            if (!gameRunning) return;
+
+            // 玩家跳跃物理（调整后更平缓）
+            playerVelocity += gravity;
+            let newBottom = parseInt(player.style.bottom) - playerVelocity;
+            if (newBottom < 50) {
+                newBottom = 50;
+                playerVelocity = 0;
+                face.textContent = '😐';
+            }
+            player.style.bottom = `${newBottom}px`;
+
+            // 生成障碍物
+            const now = Date.now();
+            if (now - lastObstacleTime > obstacleInterval) {
+                createObstacle();
+                lastObstacleTime = now;
+                heightIndex = (heightIndex + 1) % obstacleHeights.length;
+            }
+
+            // 移动障碍物+碰撞检测
+            obstacles.forEach((obs, index) => {
+                const left = parseInt(obs.style.left);
+                obs.style.left = `${left - obstacleSpeed}px`;
+
+                if (left < -40) {
+                    obs.remove();
+                    obstacles.splice(index, 1);
+                    addScore();
+                }
+
+                // 碰撞检测（放宽判定范围，容错更高）
+                if (checkCollision(player, obs)) {
+                    endGame();
+                }
+            });
+
+            // 加速更平缓（每8分提速一次，原5分→8分）
+            if (score > 0 && score % 8 === 0) {
+                obstacleSpeed = 2.5 + Math.floor(score / 8) * 0.3;
+            }
+
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // 创建障碍物
+        function createObstacle() {
+            const obstacle = document.createElement('div');
+            obstacle.classList.add('obstacle');
+            const container = document.querySelector('.game-container');
+            obstacle.style.bottom = `${obstacleHeights[heightIndex]}px`;
+            obstacle.style.left = `${container.offsetWidth}px`;
+            gameScreen.appendChild(obstacle);
+            obstacles.push(obstacle);
+        }
+
+        // 加分逻辑
+        function addScore() {
+            score++;
+            scoreDisplay.textContent = score;
+        }
+
+        // 碰撞检测（重点优化：缩小判定范围）
+        function checkCollision(player, obstacle) {
+            const p = player.getBoundingClientRect();
+            const o = obstacle.getBoundingClientRect();
+            // 只检测方块中心区域碰撞（边缘擦碰不算）
+            return (
+                p.bottom - 10 > o.top && // 方块底部往上10px才判定
+                p.top + 10 < o.bottom && // 方块顶部往下10px才判定
+                p.right - 10 > o.left && // 方块右侧往左10px才判定
+                p.left + 10 < o.right    // 方块左侧往右10px才判定
+            );
+        }
+
+        // 游戏结束
+        function endGame() {
+            gameRunning = false;
+            cancelAnimationFrame(animationId);
+            face.textContent = '😭';
+            finalScoreDisplay.textContent = score;
+            endScreen.style.display = 'flex';
+        }
+
+        // 重新开始
+        function restartGame() {
+            endScreen.style.display = 'none';
+            initGame();
+            gameRunning = true;
+            animate();
+        }
+
+        // 返回主页
+        function goToHome() {
+            gameRunning = false;
+            cancelAnimationFrame(animationId);
+            mainScreen.style.display = 'flex';
+            gameScreen.style.display = 'none';
+            endScreen.style.display = 'none';
+        }
+
+        // 跳跃控制（点击一次跳一次，不连跳）
+        function jump() {
+            if (gameRunning && playerVelocity === 0) { // 仅落地后可跳
+                playerVelocity = jumpForce;
+                face.textContent = '😄';
+            }
+        }
+
+        // 绑定点击/触摸事件
+        document.addEventListener('click', jump);
+        document.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            jump();
+        }, { passive: false });
+    </script>
+</body>
+</html>

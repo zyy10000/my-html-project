@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>点击方块 - 上瘾小游戏</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#B5DEFF',      // 浅蓝
+                        secondary: '#FFC8DD',    // 浅粉
+                        accent: '#CDF0EA',       // 浅绿
+                        dark: '#F9F9F9',         // 近白色
+                        light: '#111111',        // 深灰（文本）
+                        success: '#B9F3E4',      // 薄荷绿
+                        warning: '#FFE69A',      // 浅黄
+                        danger: '#FFC2C2'        // 浅红
+
+                    },
+                    fontFamily: {
+                        game: ['"Segoe UI"', 'Roboto', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .text-shadow {
+                text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .transition-transform-opacity {
+                transition-property: transform, opacity;
+                transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+                transition-duration: 300ms;
+            }
+            .scale-bounce {
+                animation: scaleBounce 0.5s ease-in-out;
+            }
+            @keyframes scaleBounce {
+                0%, 100% { transform: scale(1); }
+                50% { transform: scale(1.1); }
+            }
+            .pulse-opacity {
+                animation: pulseOpacity 1.5s ease-in-out infinite;
+            }
+            @keyframes pulseOpacity {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.7; }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-pink-50 to-pink-100 font-game text-dark min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden relative">
+    <!-- 游戏容器 -->
+    <div id="game-container" class="w-full max-w-md mx-auto flex flex-col items-center justify-center relative">
+        <!-- 游戏标题 -->
+        <h1 class="text-[clamp(2rem,5vw,3rem)] font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary mb-6 text-dark text-shadow">点击方块</h1>
+        
+        <!-- 游戏开始界面 -->
+        <div id="start-screen" class="w-full flex flex-col items-center justify-center p-6 bg-dark/70 backdrop-blur-md rounded-2xl shadow-xl border border-white/10">
+            <p class="text-[clamp(1rem,3vw,1.25rem)] text-center mb-8 text-light/90">点击屏幕上出现的方块得分，方块越小得分越高！</p>
+            
+            <div class="flex flex-col space-y-4 w-full max-w-xs">
+                <div class="flex items-center justify-between bg-gray-800/50 rounded-xl p-4 border border-white/5">
+                    <span class="text-light/80">难度</span>
+                    <div class="flex space-x-2">
+                        <button class="difficulty-btn px-4 py-2 rounded-lg bg-primary/80 text-white text-sm font-medium" data-level="easy">简单</button>
+                        <button class="difficulty-btn px-4 py-2 rounded-lg bg-gray-700 text-white/70 text-sm font-medium" data-level="medium">中等</button>
+                        <button class="difficulty-btn px-4 py-2 rounded-lg bg-gray-700 text-white/70 text-sm font-medium" data-level="hard">困难</button>
+                    </div>
+                </div>
+                
+                <button id="start-button" class="w-full py-4 bg-gradient-to-r from-primary to-secondary rounded-xl text-white font-bold text-lg shadow-lg hover:shadow-primary/30 transition-all transform hover:scale-105 active:scale-95">
+                    <i class="fa fa-play-circle mr-2"></i>开始游戏
+                </button>
+            </div>
+            
+            <div class="mt-8 w-full">
+                
+            </div>
+        </div>
+        
+        <!-- 游戏界面 (默认隐藏) -->
+        <div id="game-screen" class="w-full hidden">
+            <!-- 游戏状态栏 -->
+            <div class="flex justify-between items-center mb-4 w-full">
+                <div class="bg-dark/70 backdrop-blur-md rounded-xl p-3 flex items-center shadow-lg border border-white/10">
+                    <i class="fa fa-trophy text-yellow-400 mr-2"></i>
+                    <div>
+                        <div class="text-xs text-light/60">分数</div>
+                        <div id="score" class="text-xl font-bold text-primary">0</div>
+                    </div>
+                </div>
+                
+                <div class="bg-dark/70 backdrop-blur-md rounded-xl p-3 flex items-center shadow-lg border border-white/10">
+                    <i class="fa fa-clock-o text-red-400 mr-2"></i>
+                    <div>
+                        <div class="text-xs text-light/60">时间</div>
+                        <div id="time" class="text-xl font-bold text-primary">30</div>
+                    </div>
+                </div>
+                
+                <button id="pause-button" class="bg-dark/70 backdrop-blur-md rounded-xl p-3 shadow-lg border border-white/10 hover:bg-dark/90 transition-colors">
+                    <i class="fa fa-pause text-light/80"></i>
+                </button>
+            </div>
+            
+            <!-- 游戏区域 -->
+            <div id="game-area" class="relative w-full aspect-square bg-dark/50 backdrop-blur-sm rounded-2xl shadow-inner border border-white/10 overflow-hidden">
+                <!-- 方块会动态生成在这里 -->
+            </div>
+            
+            <!-- 游戏控制 -->
+            <div class="flex justify-between mt-4">
+                <button id="sound-button" class="bg-dark/70 backdrop-blur-md rounded-xl p-3 shadow-lg border border-white/10 hover:bg-dark/90 transition-colors">
+                    <i class="fa fa-volume-up text-light/80"></i>
+                </button>
+                <button id="restart-button" class="bg-dark/70 backdrop-blur-md rounded-xl p-3 shadow-lg border border-white/10 hover:bg-dark/90 transition-colors">
+                    <i class="fa fa-refresh text-light/80"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- 游戏暂停界面 (默认隐藏) -->
+        <div id="pause-screen" class="w-full absolute top-0 left-0 right-0 bottom-0 bg-dark/80 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center hidden z-10">
+            <h2 class="text-2xl font-bold mb-6 text-light">游戏暂停</h2>
+            <div class="flex flex-col space-y-3 w-full max-w-xs px-4">
+                <button id="resume-button" class="w-full py-3 bg-primary/80 rounded-xl text-white font-medium shadow-lg hover:bg-primary transition-colors">
+                    <i class="fa fa-play mr-2"></i>继续游戏
+                </button>
+                <button id="restart-from-pause-button" class="w-full py-3 bg-gray-700/80 rounded-xl text-white/90 font-medium shadow-lg hover:bg-gray-700 transition-colors">
+                    <i class="fa fa-refresh mr-2"></i>重新开始
+                </button>
+                <button id="exit-button" class="w-full py-3 bg-gray-600/80 rounded-xl text-white/80 font-medium shadow-lg hover:bg-gray-600 transition-colors">
+                    <i class="fa fa-home mr-2"></i>返回主菜单
+                </button>
+            </div>
+        </div>
+        
+        <!-- 游戏结束界面 (默认隐藏) -->
+        <div id="game-over-screen" class="w-full absolute top-0 left-0 right-0 bottom-0 bg-dark/80 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center hidden z-10">
+            <h2 class="text-2xl font-bold mb-2 text-light">游戏结束</h2>
+            <p class="text-light/70 mb-6">你的得分</p>
+            <div id="final-score" class="text-4xl font-bold mb-8 text-primary pulse-opacity">0</div>
+            
+            <div class="flex flex-col space-y-3 w-full max-w-xs px-4">
+                <button id="play-again-button" class="w-full py-3 bg-gradient-to-r from-primary to-secondary rounded-xl text-white font-medium shadow-lg hover:shadow-primary/30 transition-all transform hover:scale-105 active:scale-95">
+                    <i class="fa fa-refresh mr-2"></i>再玩一次
+                </button>
+                <button id="exit-from-game-over-button" class="w-full py-3 bg-gray-700/80 rounded-xl text-white/90 font-medium shadow-lg hover:bg-gray-700 transition-colors">
+                    <i class="fa fa-home mr-2"></i>返回主菜单
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 游戏音效 -->
+    <audio id="click-sound" preload="auto">
+        <source src="https://assets.mixkit.co/sfx/preview/mixkit-arcade-game-jump-coin-216.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="game-over-sound" preload="auto">
+        <source src="https://assets.mixkit.co/sfx/preview/mixkit-player-losing-or-failing-2042.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="start-sound" preload="auto">
+        <source src="https://assets.mixkit.co/sfx/preview/mixkit-positive-guitar-tone-2324.mp3" type="audio/mpeg">
+    </audio>
+    
+    <script>
+        // 游戏配置
+        const gameConfig = {
+            difficulty: 'medium',
+            easy: {
+                timeLimit: 60, // 秒
+                minSize: 60,   // 方块最小尺寸 (px)
+                maxSize: 120,  // 方块最大尺寸 (px)
+                spawnInterval: [1000, 2000], // 方块出现间隔 (ms)
+                lifeTime: 2000, // 方块存在时间 (ms)
+                speedIncreaseFactor: 0.95 // 难度增加因子
+            },
+            medium: {
+                timeLimit: 45,
+                minSize: 40,
+                maxSize: 100,
+                spawnInterval: [800, 1800],
+                lifeTime: 1800,
+                speedIncreaseFactor: 0.93
+            },
+            hard: {
+                timeLimit: 30,
+                minSize: 30,
+                maxSize: 80,
+                spawnInterval: [600, 1500],
+                lifeTime: 1500,
+                speedIncreaseFactor: 0.90
+            }
+        };
+        
+        // 游戏状态
+        const gameState = {
+            score: 0,
+            timeLeft: 0,
+            isPlaying: false,
+            isPaused: false,
+            currentDifficulty: gameConfig.difficulty,
+            spawnTimer: null,
+            timeTimer: null,
+            soundEnabled: true,
+            currentSizeRange: [gameConfig.medium.minSize, gameConfig.medium.maxSize],
+            currentSpawnInterval: [gameConfig.medium.spawnInterval[0], gameConfig.medium.spawnInterval[1]],
+            currentLifeTime: gameConfig.medium.lifeTime
+        };
+        
+        // DOM 元素
+        const startScreen = document.getElementById('start-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const pauseScreen = document.getElementById('pause-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const gameArea = document.getElementById('game-area');
+        const scoreElement = document.getElementById('score');
+        const timeElement = document.getElementById('time');
+        const finalScoreElement = document.getElementById('final-score');
+        const startButton = document.getElementById('start-button');
+        const pauseButton = document.getElementById('pause-button');
+        const resumeButton = document.getElementById('resume-button');
+        const restartButton = document.getElementById('restart-button');
+        const restartFromPauseButton = document.getElementById('restart-from-pause-button');
+        const playAgainButton = document.getElementById('play-again-button');
+        const exitButton = document.getElementById('exit-button');
+        const exitFromGameOverButton = document.getElementById('exit-from-game-over-button');
+        const soundButton = document.getElementById('sound-button');
+        const difficultyButtons = document.querySelectorAll('.difficulty-btn');
+        
+        // 音效
+        const clickSound = document.getElementById('click-sound');
+        const gameOverSound = document.getElementById('game-over-sound');
+        const startSound = document.getElementById('start-sound');
+        
+        // 初始化
+        function init() {
+            // 设置难度按钮事件
+            difficultyButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    // 移除所有按钮的活跃状态
+                    difficultyButtons.forEach(btn => {
+                        btn.classList.remove('bg-primary/80', 'text-white');
+                        btn.classList.add('bg-gray-700', 'text-white/70');
+                    });
+                    
+                    // 设置当前按钮为活跃状态
+                    button.classList.remove('bg-gray-700', 'text-white/70');
+                    button.classList.add('bg-primary/80', 'text-white');
+                    
+                    // 更新游戏配置
+                    gameState.currentDifficulty = button.dataset.level;
+                });
+            });
+            
+            // 设置按钮事件
+            startButton.addEventListener('click', startGame);
+            pauseButton.addEventListener('click', pauseGame);
+            resumeButton.addEventListener('click', resumeGame);
+            restartButton.addEventListener('click', restartGame);
+            restartFromPauseButton.addEventListener('click', restartGame);
+            playAgainButton.addEventListener('click', restartGame);
+            exitButton.addEventListener('click', exitGame);
+            exitFromGameOverButton.addEventListener('click', exitGame);
+            soundButton.addEventListener('click', toggleSound);
+            
+            // 移动设备上的触摸支持
+            gameArea.addEventListener('touchstart', handleTouch);
+        }
+        
+        // 开始游戏
+        function startGame() {
+            // 重置游戏状态
+            gameState.score = 0;
+            gameState.timeLeft = gameConfig[gameState.currentDifficulty].timeLimit;
+            gameState.isPlaying = true;
+            gameState.isPaused = false;
+            gameState.currentSizeRange = [
+                gameConfig[gameState.currentDifficulty].minSize,
+                gameConfig[gameState.currentDifficulty].maxSize
+            ];
+            gameState.currentSpawnInterval = [
+                gameConfig[gameState.currentDifficulty].spawnInterval[0],
+                gameConfig[gameState.currentDifficulty].spawnInterval[1]
+            ];
+            gameState.currentLifeTime = gameConfig[gameState.currentDifficulty].lifeTime;
+            
+            // 更新UI
+            scoreElement.textContent = gameState.score;
+            timeElement.textContent = gameState.timeLeft;
+            startScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+            pauseScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            
+            // 清空游戏区域
+            gameArea.innerHTML = '';
+            
+            // 播放开始音效
+            if (gameState.soundEnabled) {
+                startSound.currentTime = 0;
+                startSound.play();
+            }
+            
+            // 开始生成方块
+            spawnSquare();
+            
+            // 开始倒计时
+            gameState.timeTimer = setInterval(() => {
+                gameState.timeLeft--;
+                timeElement.textContent = gameState.timeLeft;
+                
+                // 时间到，游戏结束
+                if (gameState.timeLeft <= 0) {
+                    endGame();
+                }
+                
+                // 难度逐渐增加
+                if (gameState.timeLeft % 5 === 0 && gameState.timeLeft > 0) {
+                    increaseDifficulty();
+                }
+            }, 1000);
+        }
+        
+        // 暂停游戏
+        function pauseGame() {
+            if (!gameState.isPlaying || gameState.isPaused) return;
+            
+            gameState.isPaused = true;
+            
+            // 暂停计时器
+            clearInterval(gameState.spawnTimer);
+            clearInterval(gameState.timeTimer);
+            
+            // 显示暂停界面
+            pauseScreen.classList.remove('hidden');
+            
+            // 冻结所有方块
+            const squares = document.querySelectorAll('.square');
+            squares.forEach(square => {
+                square.style.animationPlayState = 'paused';
+            });
+        }
+        
+        // 恢复游戏
+        function resumeGame() {
+            if (!gameState.isPlaying || !gameState.isPaused) return;
+            
+            gameState.isPaused = false;
+            
+            // 恢复计时器
+            gameState.spawnTimer = setTimeout(spawnSquare, getRandomInterval());
+            gameState.timeTimer = setInterval(() => {
+                gameState.timeLeft--;
+                timeElement.textContent = gameState.timeLeft;
+                
+                // 时间到，游戏结束
+                if (gameState.timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+            
+            // 隐藏暂停界面
+            pauseScreen.classList.add('hidden');
+            
+            // 恢复所有方块的动画
+            const squares = document.querySelectorAll('.square');
+            squares.forEach(square => {
+                square.style.animationPlayState = 'running';
+            });
+        }
+        
+        // 重新开始游戏
+        function restartGame() {
+            // 清除计时器
+            clearInterval(gameState.spawnTimer);
+            clearInterval(gameState.timeTimer);
+            
+            // 开始新游戏
+            startGame();
+        }
+        
+        // 退出游戏
+        function exitGame() {
+            // 清除计时器
+            clearInterval(gameState.spawnTimer);
+            clearInterval(gameState.timeTimer);
+            
+            // 重置游戏状态
+            gameState.isPlaying = false;
+            gameState.isPaused = false;
+            
+            // 更新UI
+            startScreen.classList.remove('hidden');
+            gameScreen.classList.add('hidden');
+            pauseScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            
+            // 清空游戏区域
+            gameArea.innerHTML = '';
+        }
+        
+        // 结束游戏
+        function endGame() {
+            // 清除计时器
+            clearInterval(gameState.spawnTimer);
+            clearInterval(gameState.timeTimer);
+            
+            // 更新游戏状态
+            gameState.isPlaying = false;
+            
+            // 播放游戏结束音效
+            if (gameState.soundEnabled) {
+                gameOverSound.currentTime = 0;
+                gameOverSound.play();
+            }
+            
+            // 更新UI
+            finalScoreElement.textContent = gameState.score;
+            gameOverScreen.classList.remove('hidden');
+            
+            // 移除所有方块
+            const squares = document.querySelectorAll('.square');
+            squares.forEach(square => {
+                square.remove();
+            });
+        }
+        
+        // 切换音效
+        function toggleSound() {
+            gameState.soundEnabled = !gameState.soundEnabled;
+            
+            if (gameState.soundEnabled) {
+                soundButton.innerHTML = '<i class="fa fa-volume-up text-light/80"></i>';
+            } else {
+                soundButton.innerHTML = '<i class="fa fa-volume-off text-light/80"></i>';
+            }
+        }
+        
+        // 处理触摸事件
+        function handleTouch(e) {
+            // 如果游戏未开始或已暂停，则忽略触摸事件
+            if (!gameState.isPlaying || gameState.isPaused) return;
+            
+            // 防止点击事件触发
+            e.preventDefault();
+            
+            // 获取触摸位置
+            const touch = e.touches[0];
+            const touchX = touch.clientX;
+            const touchY = touch.clientY;
+            
+            // 获取游戏区域位置
+            const rect = gameArea.getBoundingClientRect();
+            
+            // 计算触摸在游戏区域内的相对位置
+            const relativeX = touchX - rect.left;
+            const relativeY = touchY - rect.top;
+            
+            // 检查是否点击了方块
+            const squares = document.querySelectorAll('.square');
+            let clickedSquare = false;
+            
+            squares.forEach(square => {
+                const squareRect = square.getBoundingClientRect();
+                
+                if (
+                    touchX >= squareRect.left && 
+                    touchX <= squareRect.right && 
+                    touchY >= squareRect.top && 
+                    touchY <= squareRect.bottom
+                ) {
+                    // 计算得分 (方块越小得分越高)
+                    const size = parseInt(square.style.width);
+                    const maxSize = gameState.currentSizeRange[1];
+                    const minSize = gameState.currentSizeRange[0];
+                    const score = Math.round(10 * (maxSize - size) / (maxSize - minSize) + 5);
+                    
+                    // 更新分数
+                    updateScore(score);
+                    
+                    // 播放点击音效
+                    if (gameState.soundEnabled) {
+                        clickSound.currentTime = 0;
+                        clickSound.play();
+                    }
+                    
+                    // 移除方块并显示得分动画
+                    square.remove();
+                    showScoreAnimation(score, relativeX, relativeY);
+                    
+                    clickedSquare = true;
+                }
+            });
+            
+            // 如果没有点击方块，可能是误触，添加一个小惩罚
+            if (!clickedSquare) {
+                // 减少1秒时间
+                if (gameState.timeLeft > 1) {
+                    gameState.timeLeft -= 1;
+                    timeElement.textContent = gameState.timeLeft;
+                    
+                    // 显示时间减少动画
+                    showTimePenaltyAnimation(relativeX, relativeY);
+                }
+            }
+        }
+        
+        // 更新分数
+        function updateScore(points) {
+            gameState.score += points;
+            scoreElement.textContent = gameState.score;
+            
+            // 添加分数动画
+            scoreElement.classList.add('scale-bounce');
+            setTimeout(() => {
+                scoreElement.classList.remove('scale-bounce');
+            }, 500);
+        }
+        
+        // 显示得分动画
+        function showScoreAnimation(points, x, y) {
+            const scorePopup = document.createElement('div');
+            scorePopup.className = 'absolute text-primary font-bold text-xl z-20 transition-transform-opacity';
+            scorePopup.style.left = `${x}px`;
+            scorePopup.style.top = `${y}px`;
+            scorePopup.style.transform = 'translate(-50%, -50%)';
+            scorePopup.textContent = `+${points}`;
+            
+            gameArea.appendChild(scorePopup);
+            
+            // 动画效果
+            setTimeout(() => {
+                scorePopup.style.transform = 'translate(-50%, -150%)';
+                scorePopup.style.opacity = '0';
+                
+                // 移除元素
+                setTimeout(() => {
+                    scorePopup.remove();
+                }, 500);
+            }, 10);
+        }
+        
+        // 显示时间惩罚动画
+        function showTimePenaltyAnimation(x, y) {
+            const penaltyPopup = document.createElement('div');
+            penaltyPopup.className = 'absolute text-red-500 font-bold text-xl z-20 transition-transform-opacity';
+            penaltyPopup.style.left = `${x}px`;
+            penaltyPopup.style.top = `${y}px`;
+            penaltyPopup.style.transform = 'translate(-50%, -50%)';
+            penaltyPopup.textContent = '-1s';
+            
+            gameArea.appendChild(penaltyPopup);
+            
+            // 动画效果
+            setTimeout(() => {
+                penaltyPopup.style.transform = 'translate(-50%, -150%)';
+                penaltyPopup.style.opacity = '0';
+                
+                // 移除元素
+                setTimeout(() => {
+                    penaltyPopup.remove();
+                }, 500);
+            }, 10);
+        }
+        
+        // 生成方块
+        function spawnSquare() {
+            if (!gameState.isPlaying || gameState.isPaused) return;
+            
+            // 随机生成方块大小
+            const size = Math.floor(Math.random() * (gameState.currentSizeRange[1] - gameState.currentSizeRange[0] + 1)) + gameState.currentSizeRange[0];
+            
+            // 确保方块不会超出游戏区域
+            const maxX = gameArea.clientWidth - size;
+            const maxY = gameArea.clientHeight - size;
+            
+            // 随机生成位置
+            const x = Math.floor(Math.random() * maxX);
+            const y = Math.floor(Math.random() * maxY);
+            
+            // 随机生成颜色
+            const colors = [
+                'bg-red-500', 'bg-blue-500', 'bg-green-500', 
+                'bg-yellow-500', 'bg-purple-500', 'bg-pink-500',
+                'bg-indigo-500', 'bg-teal-500', 'bg-amber-500'
+            ];
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            
+            // 创建方块
+            const square = document.createElement('div');
+            square.className = `square absolute ${color} rounded-lg shadow-lg cursor-pointer transform transition-all duration-300 hover:scale-105 active:scale-95`;
+            square.style.width = `${size}px`;
+            square.style.height = `${size}px`;
+            square.style.left = `${x}px`;
+            square.style.top = `${y}px`;
+            
+            // 添加点击事件
+            square.addEventListener('click', () => {
+                // 计算得分 (方块越小得分越高)
+                const score = Math.round(10 * (gameState.currentSizeRange[1] - size) / (gameState.currentSizeRange[1] - gameState.currentSizeRange[0]) + 5);
+                
+                // 更新分数
+                updateScore(score);
+                
+                // 播放点击音效
+                if (gameState.soundEnabled) {
+                    clickSound.currentTime = 0;
+                    clickSound.play();
+                }
+                
+                // 移除方块并显示得分动画
+                square.remove();
+                showScoreAnimation(score, x + size/2, y + size/2);
+            });
+            
+            // 添加到游戏区域
+            gameArea.appendChild(square);
+            
+            // 设置方块消失的计时器
+            setTimeout(() => {
+                if (gameState.isPlaying && !gameState.isPaused && square.parentNode === gameArea) {
+                    // 添加消失动画
+                    square.style.opacity = '0';
+                    square.style.transform = 'scale(0.5)';
+                    
+                    // 移除方块
+                    setTimeout(() => {
+                        if (square.parentNode === gameArea) {
+                            square.remove();
+                        }
+                    }, 300);
+                }
+            }, gameState.currentLifeTime);
+            
+            // 安排下一个方块
+            gameState.spawnTimer = setTimeout(spawnSquare, getRandomInterval());
+        }
+        
+        // 获取随机间隔时间
+        function getRandomInterval() {
+            const min = gameState.currentSpawnInterval[0];
+            const max = gameState.currentSpawnInterval[1];
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+        
+        // 增加游戏难度
+        function increaseDifficulty() {
+            // 减少生成间隔
+            gameState.currentSpawnInterval[0] = Math.max(
+                300, 
+                Math.floor(gameState.currentSpawnInterval[0] * gameConfig[gameState.currentDifficulty].speedIncreaseFactor)
+            );
+            gameState.currentSpawnInterval[1] = Math.max(
+                500, 
+                Math.floor(gameState.currentSpawnInterval[1] * gameConfig[gameState.currentDifficulty].speedIncreaseFactor)
+            );
+            
+            // 减少方块存在时间
+            gameState.currentLifeTime = Math.max(
+                800, 
+                Math.floor(gameState.currentLifeTime * gameConfig[gameState.currentDifficulty].speedIncreaseFactor)
+            );
+            
+            // 稍微减少最大方块尺寸
+            gameState.currentSizeRange[1] = Math.max(
+                gameState.currentSizeRange[0] + 10,
+                Math.floor(gameState.currentSizeRange[1] * 0.97)
+            );
+        }
+        
+        // 初始化游戏
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
+    
